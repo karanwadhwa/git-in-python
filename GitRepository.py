@@ -117,9 +117,9 @@ class GitRepository():
         # obj is of format 'obj_type<space>size<null_char>data'
         space_idx = rawdata.find(b' ')
         null_idx = rawdata.find(b'\x00')
-        fmt = rawdata[0:space_idx].decode('ascii')
+        fmt = rawdata[0:space_idx]
         size = int(rawdata[space_idx:null_idx].decode('ascii'))
-        data = rawdata[null_idx+1:].decode('ascii')
+        data = rawdata[null_idx+1:]
 
         if size != len(rawdata)-null_idx-1:
             raise Exception(f"Malformed object {sha}: bad length")
