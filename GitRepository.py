@@ -1,5 +1,9 @@
 import os
 import configparser
+import zlib
+import hashlib
+
+from GitObject import GitObject, GitBlob
 
 
 class GitRepository():
@@ -100,3 +104,46 @@ class GitRepository():
             self.config.set("core", "filemode", "false")
             self.config.set("core", "bare", "false")
             self.config.write(f)
+
+    def object_read(self, sha) -> GitObject:
+        path = self.get_file_path("objects", sha[0:2], sha[2:])
+
+        if not os.path.isfile(path):
+            raise Exception("File not found")
+
+        with open(path, 'rb') as f:
+            rawdata = zlib.decompress(f.read())
+
+        # obj is of format 'obj_type<space>size<null_char>data'
+        space_idx = rawdata.find(b' ')
+        null_idx = rawdata.find(b'\x00')
+        fmt = rawdata[0:space_idx].decode('ascii')
+        size = int(rawdata[space_idx:null_idx].decode('ascii'))
+        data = rawdata[null_idx+1:].decode('ascii')
+
+        if size != len(rawdata)-null_idx-1:
+            raise Exception(f"Malformed object {sha}: bad length")
+
+        match fmt:
+            case b'blob': constructor = GitBlob
+            case _:
+                raise Exception(f"Unknown type {fmt} for object {sha}")
+
+        return constructor(data)
+
+    def object_write(self, obj: GitObject) -> str:
+        data = obj.serialize()
+        size = str(len(data)).encode()
+
+        result = obj.fmt + b' ' + size + b'\x00' + data
+        sha = hashlib.sha1(result).hexdigest()
+
+        path = self.get_file_path("objects", sha[0:2], sha[2:], mkdir=True)
+
+        if os.path.exists(path):
+            raise Exception(f"Object already exists at {sha}")
+
+        with open(path, 'wb') as f:
+            f.write(zlib.compress(data))
+
+        return sha
