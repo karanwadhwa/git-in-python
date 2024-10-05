@@ -131,19 +131,20 @@ class GitRepository():
 
         return constructor(data)
 
-    def object_write(self, obj: GitObject) -> str:
+    def object_write(self, obj: GitObject, write=False) -> str:
         data = obj.serialize()
         size = str(len(data)).encode()
 
         result = obj.fmt + b' ' + size + b'\x00' + data
         sha = hashlib.sha1(result).hexdigest()
 
-        path = self.get_file_path("objects", sha[0:2], sha[2:], mkdir=True)
+        if write:
+            path = self.get_file_path("objects", sha[0:2], sha[2:], mkdir=True)
 
-        if os.path.exists(path):
-            raise Exception(f"Object already exists at {sha}")
+            if os.path.exists(path):
+                raise Exception(f"Object already exists at {sha}")
 
-        with open(path, 'wb') as f:
-            f.write(zlib.compress(data))
+            with open(path, 'wb') as f:
+                f.write(zlib.compress(data))
 
         return sha
